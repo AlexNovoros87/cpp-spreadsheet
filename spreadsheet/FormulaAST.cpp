@@ -9,6 +9,8 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <numeric>
+#include <limits>
 
 namespace ASTImpl {
 
@@ -67,12 +69,17 @@ constexpr PrecedenceRule PRECEDENCE_RULES[EP_END][EP_END] = {
     /* EP_ATOM */ {PR_NONE, PR_NONE, PR_NONE, PR_NONE, PR_NONE, PR_NONE},
 };
 
+
+
+
+
+
 class Expr {
 public:
     virtual ~Expr() = default;
     virtual void Print(std::ostream& out) const = 0;
     virtual void DoPrintFormula(std::ostream& out, ExprPrecedence precedence) const = 0;
-    virtual double Evaluate(/*добавьте сюда нужные аргументы*/ args) const = 0;
+    virtual double Evaluate(const SheetInterface& table) const = 0;
 
     // higher is tighter
     virtual ExprPrecedence GetPrecedence() const = 0;
@@ -142,9 +149,38 @@ public:
         }
     }
 
-    double Evaluate(/*добавьте нужные аргументы*/) const override {
-			// Скопируйте ваше решение из предыдущих уроков.
-    }
+    double Evaluate(const SheetInterface& table) const override {
+          
+            double l = lhs_->Evaluate(table);
+            double r = rhs_->Evaluate(table);
+  
+         
+         switch(type_){
+           case Type::Add :
+           
+              return l+r;
+           break;
+           case Type::Subtract :
+    
+              return l-r;
+           break;
+            case Type::Multiply :
+             
+              return l*r;
+           break;
+            case Type::Divide :
+    
+           return l/r;
+           break;
+           default:
+           throw FormulaException("BinOpEvaluate -> Incorrect symbol");
+           break;
+        }
+          
+           
+     
+
+return 0.;}
 
 private:
     Type type_;
@@ -180,9 +216,19 @@ public:
         return EP_UNARY;
     }
 
-    double Evaluate(/*добавьте нужные аргументы*/ args) const override {
-        // Скопируйте ваше решение из предыдущих уроков.
-    }
+    double Evaluate(const SheetInterface& table) const override {
+      
+ 
+ switch (type_){
+     case Type::UnaryPlus :
+     return operand_->Evaluate(table);
+     break;
+     case Type::UnaryMinus :
+    
+     return operand_->Evaluate(table) * -1.;
+     break;}
+     return 0.;
+    };
 
 private:
     Type type_;
@@ -211,10 +257,43 @@ public:
         return EP_ATOM;
     }
 
-    double Evaluate(/*добавьте нужные аргументы*/ args) const override {
-        // реализуйте метод.
-    }
+    double Evaluate(const SheetInterface& table) const override {
+       using namespace std;
+       // using Value = std::variant<std::string, double, FormulaError>;  
+         if(!cell_->IsValid()) throw(FormulaError(FormulaError::Category::Ref));
+         if(table.GetCell(*cell_)== nullptr) return 0.;
+          // strinng -> double -> ferror
+         auto tempvalue =  table.GetCell(*cell_)->GetValue();
 
+         if(holds_alternative<double>(tempvalue)){
+           // cout<<"ENTER A DOUBLE"<<endl;
+             double d_val = get<double>(tempvalue);
+             if(isnan(d_val) || isinf(d_val)) throw FormulaError(FormulaError::Category::Arithmetic);
+             return d_val;            
+ 
+         }//ifdouble
+         else if(holds_alternative<string>(tempvalue)){
+             const std::string& s_val = get<std::string>(tempvalue);
+             if(s_val.empty()) return 0.;
+             
+            try{
+             size_t converted = 0;
+             double result = std::stod(std::get<std::string>(tempvalue), &converted);
+             if (converted == std::get<std::string>(tempvalue).size()) return result;
+             else throw FormulaError(FormulaError::Category::Value);
+            }
+            catch(...){
+                throw FormulaError(FormulaError::Category::Value);
+            }
+ 
+        }//if string
+         else {
+            const FormulaError& fe_val = get<FormulaError>(tempvalue);
+            throw FormulaError(fe_val.GetCategory());
+         
+         }//ifferr
+     return 0.;
+    }
 private:
     const Position* cell_;
 };
@@ -237,7 +316,8 @@ public:
         return EP_ATOM;
     }
 
-    double Evaluate(/*добавьте нужные аргументы*/ args) const override {
+    double Evaluate(const SheetInterface& table) const override {
+ 
         return value_;
     }
 
@@ -391,8 +471,8 @@ void FormulaAST::PrintFormula(std::ostream& out) const {
     root_expr_->PrintFormula(out, ASTImpl::EP_ATOM);
 }
 
-double FormulaAST::Execute(/*добавьте нужные аргументы*/ args) const {
-    return root_expr_->Evaluate(/*добавьте нужные аргументы*/ args);
+double FormulaAST::Execute(const SheetInterface& table) const {
+    return root_expr_->Evaluate(table);
 }
 
 FormulaAST::FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr, std::forward_list<Position> cells)
@@ -402,3 +482,33 @@ FormulaAST::FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr, std::forward_li
 }
 
 FormulaAST::~FormulaAST() = default;
+
+/*
+ double Evaluate(const SheetInterface& table) const override {
+       // std::cerr<<"TreeEval"<<std::endl;        
+      //  system("pause");
+         if(cell_ == nullptr) throw(FormulaError(FormulaError::Category::Ref));
+         if(!cell_->IsValid()) throw(FormulaError(FormulaError::Category::Value));
+         if(table.GetCell(*cell_)!= nullptr ) {
+            
+        // using Value = std::variant<std::string, double, FormulaError>;
+           auto value = table.GetCell(*cell_)->GetValue();
+          // if(std::holds_alternative<double>(value)) std::cout<<"D";
+          // if(std::holds_alternative<std::string>(value)) std::cout<<"s"<<std::get<std::string>(value);;
+          // if(std::holds_alternative<FormulaError>(value)) std::cout<<"fe";
+           
+           size_t converted = 0;
+          double result = 0;
+          try{
+           result = std::stod(std::get<std::string>(value), &converted);
+          }
+          catch(...){
+         
+          }
+           
+           if (converted == std::get<std::string>(value).size()) return result;
+           else throw FormulaError(FormulaError::Category::Value);
+           
+           }
+    return 0.;
+    } */

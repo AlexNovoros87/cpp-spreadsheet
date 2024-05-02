@@ -2,7 +2,6 @@
 
 #include "FormulaLexer.h"
 #include "common.h"
-
 #include <forward_list>
 #include <functional>
 #include <stdexcept>
@@ -23,18 +22,12 @@ public:
     FormulaAST& operator=(FormulaAST&&) = default;
     ~FormulaAST();
 
-    double Execute(/*добавьте нужные аргументы*/ args) const;
+    double Execute(const SheetInterface& table) const;
     void PrintCells(std::ostream& out) const;
     void Print(std::ostream& out) const;
     void PrintFormula(std::ostream& out) const;
-
-    std::forward_list<Position>& GetCells() {
-        return cells_;
-    }
-
-    const std::forward_list<Position>& GetCells() const {
-        return cells_;
-    }
+    std::forward_list<Position>& GetCells() {return cells_;}
+    const std::forward_list<Position>& GetCells() const {return cells_;}
 
 private:
     std::unique_ptr<ASTImpl::Expr> root_expr_;

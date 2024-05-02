@@ -39,16 +39,32 @@ public:
     enum class Category {
         Ref,    // ссылка на ячейку с некорректной позицией
         Value,  // ячейка не может быть трактована как число
-        Div0,  // в результате вычисления возникло деление на ноль
+        Arithmetic,  // в результате вычисления возникло деление на ноль
     };
 
-    FormulaError(Category category);
+    FormulaError(Category category) : category_(category){};
 
-    Category GetCategory() const;
+    Category GetCategory() const {
+      return category_;
+   };
 
-    bool operator==(FormulaError rhs) const;
+    bool operator==(FormulaError rhs) const{
+        return category_ == rhs.category_;
+    };
 
-    std::string_view ToString() const;
+    std::string_view ToString() const {
+         switch (category_){
+            case Category::Arithmetic:
+            return "#ARITHM";
+            break;
+            case Category::Ref:
+            return "#REF";
+            break;
+            case Category::Value:
+            return "#VALUE";
+            break; }
+           return "";
+    };
 
 private:
     Category category_;
@@ -143,6 +159,7 @@ public:
     // соответственно. Пустая ячейка представляется пустой строкой в любом случае.
     virtual void PrintValues(std::ostream& output) const = 0;
     virtual void PrintTexts(std::ostream& output) const = 0;
+
 };
 
 // Создаёт готовую к работе пустую таблицу.
